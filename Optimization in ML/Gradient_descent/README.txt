@@ -1,7 +1,13 @@
+Created by: Omar Safwat
+Date: 07/07/2021
+
 Structure:
 ==========
-
-Gradient_descent.py : Python script contains vectorized classes implementing all gradient descent algorithms.
+Gradient_descent.py : Python script contains custom-built classes implementing the following gradient descent algorithms.
+  * Vanilla gradient descent
+  * Mini batch gradient descent
+  * Momentum gradient descent
+  * Nesterov gradient descent
 
 Linear_Regression.py : Python script builds Linear regression model using gradient descent classes, defined in "Gradient_descent.py"
 
