@@ -2,9 +2,11 @@
 # Date: 07/07/2021
 # Code by: Omar Safwat
 
+from numpy.lib.function_base import gradient
 import Gradient_descent as gd # Module contains all implementations for all gradient descent algorithms
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler 
 
 class Linear_regression():
 
@@ -13,6 +15,7 @@ class Linear_regression():
     X = None
     y = None
     theta = None
+    scaler = None
 
     def __init__(self, X, y):
         self.X = X
@@ -31,38 +34,65 @@ class Linear_regression():
         return np.atleast_2d(((h - y).T @ X)).T / n_points
     
     def fit(self, solver="batch", **kwargs):
+        
+        scale = kwargs.get('standardize', False)
+
         if (solver == "batch"):
-            self.gradient_descent = gd.Batch_GD(self.X, self.y, self.h_theta, self.J_theta, self.J_prime)
+            self.gradient_descent = gd.Batch_GD(self.X, self.y, self.h_theta, self.J_theta, self.J_prime, scale)
+            kwargs.pop('standardize', None)
             self.theta = self.gradient_descent.batch_GD(**kwargs)
         elif(solver == "mini_batch"):
-            self.gradient_descent = gd.Mini_batch_GD(self.X, self.y, self.h_theta, self.J_theta, self.J_prime)
+            self.gradient_descent = gd.Mini_batch_GD(self.X, self.y, self.h_theta, self.J_theta, self.J_prime, scale)
+            kwargs.pop('standardize', None)
             self.theta = self.gradient_descent.mini_batch_GD(**kwargs)
         elif(solver == "stochastic"):
-            self.gradient_descent = gd.Stochastic_GD(self.X, self.y, self.h_theta, self.J_theta, self.J_prime)
+            self.gradient_descent = gd.Stochastic_GD(self.X, self.y, self.h_theta, self.J_theta, self.J_prime, scale)
+            kwargs.pop('standardize', None)
             self.theta = self.gradient_descent.stochastic_GD(**kwargs)
         elif(solver == "momentum"):
-            self.gradient_descent = gd.Momentum_GD(self.X, self.y, self.h_theta, self.J_theta, self.J_prime)
+            self.gradient_descent = gd.Momentum_GD(self.X, self.y, self.h_theta, self.J_theta, self.J_prime, scale)
+            kwargs.pop('standardize', None)
             self.theta = self.gradient_descent.momentum_GD(**kwargs)
         elif(solver == "Nesterov"):
-            self.gradient_descent = gd.Nesterov_GD(self.X, self.y, self.h_theta, self.J_theta, self.J_prime)
+            self.gradient_descent = gd.Nesterov_GD(self.X, self.y, self.h_theta, self.J_theta, self.J_prime, scale)
+            kwargs.pop('standardize', None)
             self.theta = self.gradient_descent.nesterov_GD(**kwargs)
         else:
             print("Please Check your input to argument \"solver\"")
+
+        if(kwargs.get('standardize', False) == True):
+            self.scaler = self.gradient_descent.get_scaler()
 
         return self.theta
     
     def get_r2_score(self):
         return(self.gradient_descent.get_r2_score())
 
+    def predict(self, X_test):
+        """Function outputs model prediction"""
+        if(self.scaler is not None):
+            x_test_scaled = self.scaler.transform(X_test)
+            return self.h_theta(x_test_scaled, self.theta)
+        else:
+            return self.h_theta(X_test, self.theta)
+
     def plot_LR_2D(self, show_trials=False, N_trials_to_show= 10):
         """Plot solution"""
-        plt.scatter(self.X[: ,1:], self.y[:])
+        plt.scatter(self.X[: , :], self.y[:])
         upper_limit = np.max(self.X)
         lower_limit = np.min(self.X)
 
         #Plot best fit 
-        theta = self.theta
-        plt.plot(np.arange(lower_limit - 2, upper_limit + 3), theta[0] + theta[1] * np.arange(lower_limit - 2, upper_limit + 3), color='r')
+        x_axis = np.atleast_2d(np.arange(lower_limit - 2, upper_limit + 3))
+        # Add a column of ones for theta_0
+        if(self.scaler is not None):
+            X_plot = np.hstack((np.ones_like(x_axis.T), self.scaler.transform(x_axis.T)))
+        else:
+            X_plot = np.hstack((np.ones_like(x_axis.T), x_axis.T))
+
+        y = self.h_theta(X_plot, np.reshape(self.theta, (len(self.theta), 1)))
+        
+        plt.plot(x_axis[0, :], y.T[0, :], color='r')
         plt.xlabel("x")
         plt.ylabel("y")
         plt.title("Linear Regression using Gradient Descent")
@@ -70,12 +100,14 @@ class Linear_regression():
         
         if(show_trials == True):  
             step_size = self.gradient_descent.theta_hist.shape[1] // N_trials_to_show 
-            step_size = step_size + (step_size < 1) 
-            plt.scatter(self.X[: ,1:], self.y[:])
-            upper_limit = np.max(self.X)
-            lower_limit = np.min(self.X)
+            # Minimum step_size should be 1
+            step_size = step_size + (step_size < 1) * 1
+            plt.scatter(self.X[: , :], self.y[:])
             for theta in self.gradient_descent.theta_hist[:, ::step_size].T: 
-                plt.plot(np.arange(lower_limit - 2, upper_limit + 3), theta[0] + theta[1] * np.arange(lower_limit - 2, upper_limit + 3), linewidth=0.5)
+                # TODO use h_theta() to calculate prediction using theta_hist on prepared X data
+                theta = np.reshape(theta, (X_plot.shape[1], 1))
+                y = self.h_theta(X_plot, theta)
+                plt.plot(x_axis[0, :], y.T[0, :], linewidth=0.5)
             plt.xlabel("x")
             plt.ylabel("y")
             plt.title("Linear Regression trials using Gradient Descent")

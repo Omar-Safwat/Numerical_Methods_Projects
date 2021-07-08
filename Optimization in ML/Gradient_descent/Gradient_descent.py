@@ -6,6 +6,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import r2_score
+from sklearn.preprocessing import StandardScaler # Standardize data for faster convergence
 
 class Gradient_descent():
     """Interface is used as template for gradient descent algorithms"""
@@ -13,36 +14,50 @@ class Gradient_descent():
     # Interface Attributes
     theta_hist = None # History of weights
     cost_hist = None # History of cost function
+    grad_hist = None
     h_pred = None # hyposthesis/prediction
-    epoch = None
-    alpha = None # Learning rate
-    X = None
+
+    X_original = None # Original data from user
+    X_train = None # Training data, could be standardized
     y_actual = None
+    scaler = None
+
     H_func = None # Hypothesis function
     cost_func = None # cost function
     J_prime = None # Gradient of loss function
-    grad_hist = None
+    epoch = None
+    alpha = None # Learning rate
+
     MAX_EPOCHS = None
     n_points = None
     stop_criteria = None
 
-    def __init__(self, X, y, h_func, cost, jacob):
-        self.X = X
+    def __init__(self, X, y, h_func, cost, jacob, standardize=False):
+        self.X_original = X
         self.y_actual = y
         self.H_func = h_func
         self.cost_func = cost
         self.J_prime = jacob
+        # Standardize features if user specified
+        if (standardize == True):
+            self.scaler = StandardScaler()
+            self.X_train = self.scaler.fit_transform(X)
+        else:
+            self.X_train = self.X_original[:, :]
+        
+        # Add a column of ones for theta_0
+        self.X_train = np.hstack((np.ones_like(self.y_actual), self.X_train))
     
     def initialize(self, alpha, guess, batch_size):
         """Initialize first epoch"""
         if guess == 0:
-            self.theta_hist = np.zeros((self.X.shape[1], 1)) # Initialize weight vector
+            self.theta_hist = np.zeros((self.X_train.shape[1], 1)) # Initialize weight vector
         else:
             self.theta_hist = guess
 
-        self.h_pred = self.H_func(self.X[:batch_size, :], self.theta_hist)
+        self.h_pred = self.H_func(self.X_train[:batch_size, :], self.theta_hist)
         self.cost_hist = self.cost_func(self.h_pred, self.y_actual[:batch_size])
-        self.grad_hist = self.J_prime(self.h_pred, self.y_actual[:batch_size], self.X[:batch_size, :], batch_size)
+        self.grad_hist = self.J_prime(self.h_pred, self.y_actual[:batch_size], self.X_train[:batch_size, :], batch_size)
         self.n_points = batch_size
         self.epoch = 0
         self.alpha = alpha
@@ -51,17 +66,17 @@ class Gradient_descent():
         """Function updates weights along the direction of steepest descent and stores results"""
         self.epoch += 1
         # Update weight parameters
-        grad_new = self.J_prime(self.h_pred, self.y_actual[idx_1 : idx_2], self.X[idx_1 : idx_2, :], self.n_points)
+        grad_new = self.J_prime(self.h_pred, self.y_actual[idx_1 : idx_2], self.X_train[idx_1 : idx_2, :], self.n_points)
         self.grad_hist = np.hstack((self.grad_hist, grad_new))
         theta = theta - self.alpha * grad_new
         self.theta_hist = np.hstack((self.theta_hist, theta))
-        self.h_pred = self.H_func(self.X[idx_1 : idx_2, :], theta)
+        self.h_pred = self.H_func(self.X_train[idx_1 : idx_2, :], theta)
         self.cost_hist = np.append(self.cost_hist, self.cost_func(self.h_pred, self.y_actual[idx_1 : idx_2]))
 
     def shuffle_data(self):
         """Shuffle data points"""
         shuffled_order = np.random.permutation(len(self.y_actual))
-        self.X = self.X[shuffled_order, :]
+        self.X_train = self.X_train[shuffled_order, :]
         self.y_actual = np.atleast_2d(self.y_actual[shuffled_order])
 
     def is_converged(self):
@@ -101,8 +116,12 @@ class Gradient_descent():
 
     def get_r2_score(self):
         theta = np.atleast_2d(self.theta_hist[:, -1]).T
-        self.h_pred = self.H_func(self.X, theta)
+        self.h_pred = self.H_func(self.X_train, theta)
         return(r2_score(self.y_actual, self.h_pred))
+
+    def get_scaler(self):
+        """Returns scaler object"""
+        return self.scaler
 
 
 class Batch_GD(Gradient_descent):
@@ -184,20 +203,20 @@ class Momentum_GD(Gradient_descent):
         """Initialize first epoch"""
         super().initialize(alpha, guess, batch_size)
         self.gamma = gamma
-        self.mu = self.gamma * self.J_prime(self.h_pred, self.y_actual[:batch_size], self.X[:batch_size, :], batch_size)
+        self.mu = self.gamma * self.J_prime(self.h_pred, self.y_actual[:batch_size], self.X_train[:batch_size, :], batch_size)
     
     # Override
     def update_weights_GD(self, idx_1, idx_2, theta):
         """Function updates weights along the direction of steepest descent and stores results"""
         self.epoch += 1
         # Update weight parameters
-        grad_new = self.J_prime(self.h_pred, self.y_actual[idx_1 : idx_2], self.X[idx_1 : idx_2, :], self.n_points)
+        grad_new = self.J_prime(self.h_pred, self.y_actual[idx_1 : idx_2], self.X_train[idx_1 : idx_2, :], self.n_points)
         self.grad_hist = np.hstack((self.grad_hist, grad_new))
         self.mu = self.gamma * self.mu + self.alpha * grad_new
         theta = theta - self.mu
         # Record in history
         self.theta_hist = np.hstack((self.theta_hist, theta))
-        self.h_pred = self.H_func(self.X[idx_1 : idx_2, :], theta)
+        self.h_pred = self.H_func(self.X_train[idx_1 : idx_2, :], theta)
         self.cost_hist = np.append(self.cost_hist, self.cost_func(self.h_pred, self.y_actual[idx_1 : idx_2]))
 
     def momentum_GD(self, guess=0, alpha=0.001, gamma=0.8, max_epochs=1e3, stop_criteria=1e-3):
@@ -223,20 +242,20 @@ class Nesterov_GD(Momentum_GD):
         self.epoch += 1
        
         # Projecting along the gradient to "look ahead"
-        grad_proj = self.J_prime(self.h_pred, self.y_actual[idx_1 : idx_2], self.X[idx_1 : idx_2, :], self.n_points)
+        grad_proj = self.J_prime(self.h_pred, self.y_actual[idx_1 : idx_2], self.X_train[idx_1 : idx_2, :], self.n_points)
         mu_proj = self.gamma * self.mu + self.alpha * grad_proj
         theta_proj = theta - mu_proj
-        h_proj = self.H_func(self.X[idx_1 : idx_2, :], theta_proj)
+        h_proj = self.H_func(self.X_train[idx_1 : idx_2, :], theta_proj)
 
         # Use the gradient of the projected weight to update current weight 
-        grad_new = self.J_prime(h_proj, self.y_actual[idx_1 : idx_2], self.X[idx_1 : idx_2, :], self.n_points)
+        grad_new = self.J_prime(h_proj, self.y_actual[idx_1 : idx_2], self.X_train[idx_1 : idx_2, :], self.n_points)
         self.grad_hist = np.hstack((self.grad_hist, grad_new))
         self.mu = self.gamma * self.mu + self.alpha * grad_new
         theta = theta - self.mu
       
         # Record in history
         self.theta_hist = np.hstack((self.theta_hist, theta))
-        self.h_pred = self.H_func(self.X[idx_1 : idx_2, :], theta)
+        self.h_pred = self.H_func(self.X_train[idx_1 : idx_2, :], theta)
         self.cost_hist = np.append(self.cost_hist, self.cost_func(self.h_pred, self.y_actual[idx_1 : idx_2]))
     
     def nesterov_GD(self, guess=0, alpha=0.001, gamma=0.8, max_epochs=1e3, stop_criteria=1e-3):
