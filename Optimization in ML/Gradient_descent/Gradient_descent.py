@@ -19,8 +19,8 @@ class Gradient_descent():
 
     X_original = None # Original data from user
     X_train = None # Training data, could be standardized
-    y_actual = None
-    scaler = None
+    y_train = None 
+    scaler = None   #sklearn object that scales the features
 
     H_func = None # Hypothesis function
     cost_func = None # cost function
@@ -34,7 +34,7 @@ class Gradient_descent():
 
     def __init__(self, X, y, h_func, cost, jacob, standardize=False):
         self.X_original = X
-        self.y_actual = y
+        self.y_train = y
         self.H_func = h_func
         self.cost_func = cost
         self.J_prime = jacob
@@ -46,7 +46,7 @@ class Gradient_descent():
             self.X_train = self.X_original[:, :]
         
         # Add a column of ones for theta_0
-        self.X_train = np.hstack((np.ones_like(self.y_actual), self.X_train))
+        self.X_train = np.hstack((np.ones_like(self.y_train), self.X_train))
     
     def initialize(self, alpha, guess, batch_size):
         """Initialize first epoch"""
@@ -56,8 +56,8 @@ class Gradient_descent():
             self.theta_hist = guess
 
         self.h_pred = self.H_func(self.X_train[:batch_size, :], self.theta_hist)
-        self.cost_hist = self.cost_func(self.h_pred, self.y_actual[:batch_size])
-        self.grad_hist = self.J_prime(self.h_pred, self.y_actual[:batch_size], self.X_train[:batch_size, :], batch_size)
+        self.cost_hist = self.cost_func(self.h_pred, self.y_train[:batch_size])
+        self.grad_hist = self.J_prime(self.h_pred, self.y_train[:batch_size], self.X_train[:batch_size, :], batch_size)
         self.n_points = batch_size
         self.epoch = 0
         self.alpha = alpha
@@ -66,18 +66,18 @@ class Gradient_descent():
         """Function updates weights along the direction of steepest descent and stores results"""
         self.epoch += 1
         # Update weight parameters
-        grad_new = self.J_prime(self.h_pred, self.y_actual[idx_1 : idx_2], self.X_train[idx_1 : idx_2, :], self.n_points)
+        grad_new = self.J_prime(self.h_pred, self.y_train[idx_1 : idx_2], self.X_train[idx_1 : idx_2, :], self.n_points)
         self.grad_hist = np.hstack((self.grad_hist, grad_new))
         theta = theta - self.alpha * grad_new
         self.theta_hist = np.hstack((self.theta_hist, theta))
         self.h_pred = self.H_func(self.X_train[idx_1 : idx_2, :], theta)
-        self.cost_hist = np.append(self.cost_hist, self.cost_func(self.h_pred, self.y_actual[idx_1 : idx_2]))
+        self.cost_hist = np.append(self.cost_hist, self.cost_func(self.h_pred, self.y_train[idx_1 : idx_2]))
 
     def shuffle_data(self):
         """Shuffle data points"""
-        shuffled_order = np.random.permutation(len(self.y_actual))
+        shuffled_order = np.random.permutation(len(self.y_train))
         self.X_train = self.X_train[shuffled_order, :]
-        self.y_actual = np.atleast_2d(self.y_actual[shuffled_order])
+        self.y_train = np.atleast_2d(self.y_train[shuffled_order])
 
     def is_converged(self):
         """Returns boolean if stop criteria is reached"""
@@ -117,7 +117,7 @@ class Gradient_descent():
     def get_r2_score(self):
         theta = np.atleast_2d(self.theta_hist[:, -1]).T
         self.h_pred = self.H_func(self.X_train, theta)
-        return(r2_score(self.y_actual, self.h_pred))
+        return(r2_score(self.y_train, self.h_pred))
 
     def get_scaler(self):
         """Returns scaler object"""
@@ -130,7 +130,7 @@ class Batch_GD(Gradient_descent):
     def batch_GD(self, guess=0, alpha=0.001, max_epochs=1e3, stop_criteria=1e-3):
         """Optimize weights using Vanilla Gradient Descent"""
         # Initialize first epoch
-        idx_2 = len(self.y_actual)
+        idx_2 = len(self.y_train)
         self.initialize(alpha, guess, idx_2)
         self.MAX_EPOCHS = max_epochs
         self.stop_criteria = stop_criteria
@@ -158,7 +158,7 @@ class Mini_batch_GD(Gradient_descent):
         self.MAX_EPOCHS = max_epochs
         self.stop_criteria = stop_criteria
 
-        batch_size = len(self.y_actual) // n_batches
+        batch_size = len(self.y_train) // n_batches
         
         # Initialize first epoch
         self.initialize(alpha, guess, batch_size)
@@ -187,7 +187,7 @@ class Stochastic_GD(Gradient_descent):
 
         converged = False
         while (self.epoch < self.MAX_EPOCHS and converged == False):
-            for i in range(len(self.y_actual)):
+            for i in range(len(self.y_train)):
                 self.update_weights_GD(i, i + 1, np.atleast_2d(self.theta_hist[:, -1]).T)
             converged = self.is_converged()
 
@@ -203,28 +203,28 @@ class Momentum_GD(Gradient_descent):
         """Initialize first epoch"""
         super().initialize(alpha, guess, batch_size)
         self.gamma = gamma
-        self.mu = self.gamma * self.J_prime(self.h_pred, self.y_actual[:batch_size], self.X_train[:batch_size, :], batch_size)
+        self.mu = self.gamma * self.J_prime(self.h_pred, self.y_train[:batch_size], self.X_train[:batch_size, :], batch_size)
     
     # Override
     def update_weights_GD(self, idx_1, idx_2, theta):
         """Function updates weights along the direction of steepest descent and stores results"""
         self.epoch += 1
         # Update weight parameters
-        grad_new = self.J_prime(self.h_pred, self.y_actual[idx_1 : idx_2], self.X_train[idx_1 : idx_2, :], self.n_points)
+        grad_new = self.J_prime(self.h_pred, self.y_train[idx_1 : idx_2], self.X_train[idx_1 : idx_2, :], self.n_points)
         self.grad_hist = np.hstack((self.grad_hist, grad_new))
         self.mu = self.gamma * self.mu + self.alpha * grad_new
         theta = theta - self.mu
         # Record in history
         self.theta_hist = np.hstack((self.theta_hist, theta))
         self.h_pred = self.H_func(self.X_train[idx_1 : idx_2, :], theta)
-        self.cost_hist = np.append(self.cost_hist, self.cost_func(self.h_pred, self.y_actual[idx_1 : idx_2]))
+        self.cost_hist = np.append(self.cost_hist, self.cost_func(self.h_pred, self.y_train[idx_1 : idx_2]))
 
     def momentum_GD(self, guess=0, alpha=0.001, gamma=0.8, max_epochs=1e3, stop_criteria=1e-3):
         """Batch Gradient Descent with momentum"""
         self.MAX_EPOCHS = max_epochs
         self.stop_criteria = stop_criteria
         # Initialize first epoch
-        idx_2 = len(self.y_actual)
+        idx_2 = len(self.y_train)
         self.initialize(alpha, guess, gamma, idx_2)
 
         converged = False
@@ -242,13 +242,13 @@ class Nesterov_GD(Momentum_GD):
         self.epoch += 1
        
         # Projecting along the gradient to "look ahead"
-        grad_proj = self.J_prime(self.h_pred, self.y_actual[idx_1 : idx_2], self.X_train[idx_1 : idx_2, :], self.n_points)
+        grad_proj = self.J_prime(self.h_pred, self.y_train[idx_1 : idx_2], self.X_train[idx_1 : idx_2, :], self.n_points)
         mu_proj = self.gamma * self.mu + self.alpha * grad_proj
         theta_proj = theta - mu_proj
         h_proj = self.H_func(self.X_train[idx_1 : idx_2, :], theta_proj)
 
         # Use the gradient of the projected weight to update current weight 
-        grad_new = self.J_prime(h_proj, self.y_actual[idx_1 : idx_2], self.X_train[idx_1 : idx_2, :], self.n_points)
+        grad_new = self.J_prime(h_proj, self.y_train[idx_1 : idx_2], self.X_train[idx_1 : idx_2, :], self.n_points)
         self.grad_hist = np.hstack((self.grad_hist, grad_new))
         self.mu = self.gamma * self.mu + self.alpha * grad_new
         theta = theta - self.mu
@@ -256,14 +256,14 @@ class Nesterov_GD(Momentum_GD):
         # Record in history
         self.theta_hist = np.hstack((self.theta_hist, theta))
         self.h_pred = self.H_func(self.X_train[idx_1 : idx_2, :], theta)
-        self.cost_hist = np.append(self.cost_hist, self.cost_func(self.h_pred, self.y_actual[idx_1 : idx_2]))
+        self.cost_hist = np.append(self.cost_hist, self.cost_func(self.h_pred, self.y_train[idx_1 : idx_2]))
     
     def nesterov_GD(self, guess=0, alpha=0.001, gamma=0.8, max_epochs=1e3, stop_criteria=1e-3):
         """Momentum Gradient descent with look ahead correction using Nesterov's algorithm"""
         self.MAX_EPOCHS = max_epochs
         self.stop_criteria = stop_criteria
         # Initialize first epoch
-        idx_2 = len(self.y_actual)
+        idx_2 = len(self.y_train)
         self.initialize(alpha, guess, gamma, idx_2)
 
         converged = False

@@ -12,12 +12,13 @@ class Linear_regression():
 
     """Class builds a Linear Regression model"""
     gradient_descent = None # Object of Gradient_Descent Class from library "gd"
-    X = None
-    y = None
-    theta = None
-    scaler = None
+    X = None # User input data.
+    y = None # Target feature
+    theta = None # weights of model
+    scaler = None #sklearn object that scales the features
 
     def __init__(self, X, y):
+        # X, and y are 2D Numpy arrays.
         self.X = X
         self.y = y
 
@@ -37,6 +38,9 @@ class Linear_regression():
         
         scale = kwargs.get('standardize', False)
 
+        # Initialize class of the solver the user specified
+        # Pop the "standardize" keyward argument and pass the rest to the solver
+        # Solver returns the optimum weights for hypothesis function
         if (solver == "batch"):
             self.gradient_descent = gd.Batch_GD(self.X, self.y, self.h_theta, self.J_theta, self.J_prime, scale)
             kwargs.pop('standardize', None)
@@ -98,16 +102,20 @@ class Linear_regression():
         plt.title("Linear Regression using Gradient Descent")
         plt.show()
         
+        # Step through all trials and plot them on the same figure
         if(show_trials == True):  
             step_size = self.gradient_descent.theta_hist.shape[1] // N_trials_to_show 
             # Minimum step_size should be 1
             step_size = step_size + (step_size < 1) * 1
             plt.scatter(self.X[: , :], self.y[:])
+
+            # History of thetas at different epochs are accessed through the "gradient_decscent" solver object
             for theta in self.gradient_descent.theta_hist[:, ::step_size].T: 
                 # TODO use h_theta() to calculate prediction using theta_hist on prepared X data
                 theta = np.reshape(theta, (X_plot.shape[1], 1))
                 y = self.h_theta(X_plot, theta)
                 plt.plot(x_axis[0, :], y.T[0, :], linewidth=0.5)
+
             plt.xlabel("x")
             plt.ylabel("y")
             plt.title("Linear Regression trials using Gradient Descent")
