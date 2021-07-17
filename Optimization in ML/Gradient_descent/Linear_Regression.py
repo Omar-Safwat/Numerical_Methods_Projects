@@ -3,12 +3,12 @@
 # Code by: Omar Safwat
 
 from numpy.lib.function_base import gradient
-import Gradient_descent as gd # Module contains all implementations for all gradient descent algorithms
+import Gradient_Descent as gd # Module contains all implementations for all gradient descent algorithms
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler 
 
-class Linear_regression():
+class Linear_Regression():
 
     """Class builds a Linear Regression model"""
     gradient_descent = None # Object of Gradient_Descent Class from library "gd"
@@ -35,7 +35,7 @@ class Linear_regression():
         return np.atleast_2d(((h - y).T @ X)).T / n_points
     
     def fit(self, solver="batch", **kwargs):
-        
+        """Fit model weights to training data"""
         scale = kwargs.get('standardize', False)
 
         # Initialize class of the solver the user specified
@@ -61,6 +61,18 @@ class Linear_regression():
             self.gradient_descent = gd.Nesterov_GD(self.X, self.y, self.h_theta, self.J_theta, self.J_prime, scale)
             kwargs.pop('standardize', None)
             self.theta = self.gradient_descent.nesterov_GD(**kwargs)
+        elif(solver == "Adagrad"):
+            self.gradient_descent = gd.Adagrad(self.X, self.y, self.h_theta, self.J_theta, self.J_prime, scale)
+            kwargs.pop('standardize', None)
+            self.theta = self.gradient_descent.adagrad_GD(**kwargs)
+        elif(solver == "RMSprop"):
+            self.gradient_descent = gd.RMSprop(self.X, self.y, self.h_theta, self.J_theta, self.J_prime, scale)
+            kwargs.pop('standardize', None)
+            self.theta = self.gradient_descent.rms_prop_GD(**kwargs)
+        elif(solver == "Adam"):
+            self.gradient_descent = gd.Adam(self.X, self.y, self.h_theta, self.J_theta, self.J_prime, scale)
+            kwargs.pop('standardize', None)
+            self.theta = self.gradient_descent.adam_GD(**kwargs)
         else:
             print("Please Check your input to argument \"solver\"")
 
